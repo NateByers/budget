@@ -1,3 +1,9 @@
+readGoogleStatement <- function(){
+  statements <- gs_title("Statements")
+  df <- statements %>% gs_read()
+  df
+}
+
 writeStatementTable <- function(raw_statement_folder = "C:/Budget/Statements/raw",
                                 statement_table_folder = "C:/Budget/Statements/table"){
 
