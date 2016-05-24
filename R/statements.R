@@ -6,7 +6,7 @@ readGoogleStatement <- function(){
 
 writeStatementTable <- function(raw_statement_folder = "C:/Budget/Statements/raw",
                                 statement_table_folder = "C:/Budget/Statements/table"){
-
+  # raw_statement_folder = "D:/Statements/raw"; statement_table_folder = "D:/Statements/processed"
   statement_files <- list.files(raw_statement_folder)
   statement_files <- grep("\\.txt", statement_files, value = TRUE)
 
