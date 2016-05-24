@@ -49,10 +49,13 @@ getMonthlyTotals <- function(statement_table, year){
 
 processMultipleCategories <- function(df){
   # df = statement_table
-  df <- df %>% 
+  df_single_categories <- df %>% 
+    filter(!grepl("\\|", CATEGORY))
+  
+  df_multiple_categories <- df %>% 
     filter(grepl("\\|", CATEGORY))
   
-  df_list <- apply(df, 1, function(row){
+  df_list <- apply(df_multiple_categories, 1, function(row){
     # i = 1
     # row = c(df[i, "CATEGORY"],
     #         df[i, "CATEGORY_PERCENT"],
@@ -67,13 +70,13 @@ processMultipleCategories <- function(df){
       data.frame(DATE = row["DATE"], STATEMENT_TYPE = row["STATEMENT_TYPE"],
                  DESCRIPTION = row["DESCRIPTION"], 
                  AMOUNT = as.numeric(percents[i])*as.numeric(row["AMOUNT"]),
-                 CATEGORIES = categories[i], CATEGORY_PERCENT = as.character(NA),
+                 CATEGORY = categories[i], CATEGORY_PERCENT = as.character(NA),
                  stringsAsFactors = FALSE)
     }, row = row, categories = categories, percents = percents)
     Reduce(rbind, df_list)
   })
   
-  Reduce(rbind, df_list)
+  df_multiple_categories <- Reduce(rbind, df_list)
   
-  
+  rbind(df_single_categories, df_multiple_categories)
 }
