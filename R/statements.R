@@ -12,7 +12,7 @@ writeStatementTable <- function(raw_statement_folder = "C:/Budget/Statements/raw
 
   statements <- lapply(paste(raw_statement_folder, statement_files, sep = "/"),
                        function(x){
-                         # x = paste(raw_statement_folder, statement_files, sep = "/")[1]
+                         # x = paste(raw_statement_folder, statement_files, sep = "/")[12]
                          df <- readStatement(x) %>%
                            mutate(DESCRIPTION = str_trim(DESCRIPTION),
                                   DESCRIPTION = sub("[[:space:]]{2,}", " ", DESCRIPTION),
@@ -46,19 +46,21 @@ writeStatementTable <- function(raw_statement_folder = "C:/Budget/Statements/raw
 
 readStatement <- function(statement_file){
   # statement_file = x
-  year <- strsplit(statement_file, "_")[[1]][2]
-  year <- as.numeric(substr(year, 1, 4))
+  date <- strsplit(statement_file, "_")[[1]]
+  year <- as.numeric(substr(date[2], 1, 4))
+  month <- as.numeric(substr(date[2], 6, 7))
+  january_statement <- month == 1
 
   statement <- readLines(statement_file)
 
-  debit_table <- makeStatementTable(statement, year, "debit")
-  checks_table <- makeStatementTable(statement, year, "checks")
-  deposit_table <- makeStatementTable(statement, year, "deposits")
+  debit_table <- makeStatementTable(statement, year, january_statement, "debit")
+  checks_table <- makeStatementTable(statement, year, january_statement, "checks")
+  deposit_table <- makeStatementTable(statement, year, january_statement, "deposits")
 
   Reduce(rbind, list(debit_table, checks_table, deposit_table))
 }
 
-makeStatementTable <- function(statement_lines, year,
+makeStatementTable <- function(statement_lines, year, january_statement,
                                type = c("debit", "checks", "deposits")){
 
   # statement_lines = statement
@@ -79,7 +81,7 @@ makeStatementTable <- function(statement_lines, year,
                            type = type)
   statement <- Reduce(rbind, statement_rows)
   statement <- statement[!is.na(statement$DATE), ] %>%
-    mutate(YEAR = ifelse(substr(DATE, 1, 2) == "12", year - 1, year),
+    mutate(YEAR = ifelse(substr(DATE, 1, 2) == "12" & january_statement, year - 1, year),
            MONTH = substr(DATE, 1, 2), DAY = substr(DATE, 4, 5),
            DATE = as.Date(paste(YEAR, MONTH, DAY, sep = "-")),
            STATEMENT_TYPE = statement_type) %>%
@@ -134,7 +136,7 @@ processStatementLine <- function(statement_line, type = c("debit", "checks", "de
   }
 
   if(type == "deposits"){
-    # statement_line = statement_lines[46]
+    # statement_line = statement_lines[43]
     if(grepl("^\\d{2}/\\d{2}", statement_line)){
       words <- strsplit(statement_line, " ")[[1]]
       date_position <- grep("^\\d{2}/\\d{2}", words)
