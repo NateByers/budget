@@ -56,12 +56,14 @@ readStatement <- function(statement_file){
   debit_table <- makeStatementTable(statement, year, january_statement, "debit")
   checks_table <- makeStatementTable(statement, year, january_statement, "checks")
   deposit_table <- makeStatementTable(statement, year, january_statement, "deposits")
+  auto_withdraw_table <- makeStatementTable(statement, year, january_statement, "auto_withdraw")
 
-  Reduce(rbind, list(debit_table, checks_table, deposit_table))
+  Reduce(rbind, list(debit_table, checks_table, deposit_table, auto_withdraw_table))
 }
 
 makeStatementTable <- function(statement_lines, year, january_statement,
-                               type = c("debit", "checks", "deposits")){
+                               type = c("debit", "checks", "deposits",
+                                        "auto_withdraw")){
 
   # statement_lines = statement
   if(type == "debit"){
@@ -76,6 +78,10 @@ makeStatementTable <- function(statement_lines, year, january_statement,
     begin <- grep("DEPOSITS AND ADDITIONS", statement_lines)[1]
     end <- grep("Total Deposits and Additions", statement_lines)[1]
     statement_type <- "DEPOSITS"
+  }else if(type == "auto_withdraw"){
+    begin <- grep("ELECTRONIC WITHDRAWALS", statement_lines)[1]
+    end <- grep("Total Electronic Withdrawals", statement_lines)[1]
+    statement_type <- "ELECTRONIC WITHDRAWALS"
   }
   statement_rows <- lapply(statement_lines[begin:end], processStatementLine,
                            type = type)
@@ -89,7 +95,9 @@ makeStatementTable <- function(statement_lines, year, january_statement,
   statement
 }
 
-processStatementLine <- function(statement_line, type = c("debit", "checks", "deposits")){
+processStatementLine <- function(statement_line, 
+                                 type = c("debit", "checks", "deposits",
+                                          "auto_withdraw")){
 
   if(type == "debit"){
     # statement_line = statement_lines[4]
@@ -148,6 +156,26 @@ processStatementLine <- function(statement_line, type = c("debit", "checks", "de
       dollars <- sub(",", "", dollars)
       description <- paste(words[3:(dollars_position - 1)],
                           collapse = " ")
+      return(data.frame(DATE = date, DESCRIPTION = description, AMOUNT = as.numeric(dollars),
+                        stringsAsFactors = FALSE))
+    }else{
+      return(data.frame(DATE = NA, DESCRIPTION = NA, AMOUNT = NA, stringsAsFactors = FALSE))
+    }
+  }
+  
+  if(type == "auto_withdraw"){
+    # statement_line = statement_lines[137]
+    if(grepl("^\\d{2}/\\d{2}", statement_line)){
+      words <- strsplit(statement_line, " ")[[1]]
+      date_position <- grep("^\\d{2}/\\d{2}", words)
+      date_position <- date_position[length(date_position)]
+      date <- words[date_position]
+      dollars_position <- grep("\\.\\d{2}", words)
+      dollars <- words[dollars_position]
+      dollars <- sub("\\$", "", dollars)
+      dollars <- sub(",", "", dollars)
+      description <- paste(words[(date_position + 1):(dollars_position - 1)],
+                           collapse = " ")
       return(data.frame(DATE = date, DESCRIPTION = description, AMOUNT = as.numeric(dollars),
                         stringsAsFactors = FALSE))
     }else{
