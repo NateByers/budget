@@ -1,23 +1,29 @@
 postCashflow <- function(year = 2015){
   cashflow <- readCashflow()
   statement_totals <- readGoogleStatement() %>% getMonthlyTotals(year = 2015)
-  
-  # cashflow <- gs_title(paste0("Cashflow_", year, ".xlsx"))
-  # cashflow %>% gs_edit_cells(input = "4000", anchor = "G6")
-  #
-  categories <- statement_totals$CATEGORY
-  # categories <- statement_totals$CATEGORY[as.numeric(grep("^Other", statement_totals$CATEGORY)):dim(statement_totals)[1]]
-  
-  lapply(categories, addCashflowRow, 
-         statement_totals = statement_totals, cashflow = cashflow, year = year)
-  
-  
+
+  statement_totals_sans_salary <- statement_totals %>%
+    filter(!grepl("^Salary", CATEGORY))
+
+  statement_categories <- statement_totals_sans_salary$CATEGORY
+  # statement_categories <- statement_totals_sans_salary$CATEGORY[as.numeric(grep("^Other", statement_totals_sans_salary$CATEGORY)):dim(statement_totals_sans_salary)[1]]
+
+  lapply(statement_categories, addCashflowRow,
+         monthly_totals = statement_totals_sans_salary, cashflow = cashflow, year = year)
+
+  nates_pay <- getNatesPayCashflow(year = year)
+
+  pay_categories <- nates_pay$CATEGORY
+
+  lapply(pay_categories, addCashflowRow,
+         monthly_totals = nates_pay, cashflow = cashflow, year = year)
 }
 
-addCashflowRow <- function(row, statement_totals, cashflow, year){
+addCashflowRow <- function(row, monthly_totals, cashflow, year){
+  # row = "Disability Insurance"; monthly_totals = nates_pay
   print(row)
   start_cell <- findCashflowCell(cashflow, row, "JAN")
-  row_values <- statement_totals %>%
+  row_values <- monthly_totals %>%
     filter(grepl(paste0("^", row), CATEGORY)) %>%
     select(JAN:DEC) %>%
     as.data.frame() %>%
@@ -51,14 +57,14 @@ findCashflowCell <- function(data, row_name, month){
 
 
 getMonthlyTotals <- function(statement_table, year){
-  # statement_table = readGoogleStatement(); category = "Other"; year = 2015
+  # statement_table = readGoogleStatement(); year = 2015
 
   da_months <- toupper(format(as.Date(sprintf("2010-%02i-01", 1:12)), format = "%b"))
-  
+
   statement_table <- statement_table %>% processMultipleCategories()
-  
+
   statement_table[is.na(statement_table$CATEGORY), "CATEGORY"] <- "Other"
-  
+
   monthly <- statement_table %>%
     filter(CATEGORY != "Transfer") %>%
     mutate(YEAR = str_split_fixed(DATE, "/", 3)[, 3],
@@ -75,12 +81,12 @@ getMonthlyTotals <- function(statement_table, year){
 
 processMultipleCategories <- function(df){
   # df = statement_table
-  df_single_categories <- df %>% 
+  df_single_categories <- df %>%
     filter(!grepl("\\|", CATEGORY))
-  
-  df_multiple_categories <- df %>% 
+
+  df_multiple_categories <- df %>%
     filter(grepl("\\|", CATEGORY))
-  
+
   df_list <- apply(df_multiple_categories, 1, function(row){
     # i = 1
     # row = c(df[i, "CATEGORY"],
@@ -94,15 +100,15 @@ processMultipleCategories <- function(df){
     category_n <- length(categories)
     df_list <- lapply(1:category_n, function(i, row, categories, percents){
       data.frame(DATE = row["DATE"], STATEMENT_TYPE = row["STATEMENT_TYPE"],
-                 DESCRIPTION = row["DESCRIPTION"], 
+                 DESCRIPTION = row["DESCRIPTION"],
                  AMOUNT = as.numeric(percents[i])*as.numeric(row["AMOUNT"]),
                  CATEGORY = categories[i], CATEGORY_PERCENT = as.character(NA),
                  stringsAsFactors = FALSE)
     }, row = row, categories = categories, percents = percents)
     Reduce(rbind, df_list)
   })
-  
+
   df_multiple_categories <- Reduce(rbind, df_list)
-  
+
   rbind(df_single_categories, df_multiple_categories)
 }
